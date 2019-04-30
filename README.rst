@@ -5,11 +5,11 @@ django-taggit
    :target: https://jazzband.co/
    :alt: Jazzband
 
-.. image:: https://travis-ci.org/jazzband/django-taggit.svg?branch=master
-    :target: https://travis-ci.org/jazzband/django-taggit
+.. image:: https://travis-ci.org/bashu/django-taggit-parler.svg?branch=develop
+    :target: https://travis-ci.org/bashu/django-taggit-parler
 
-.. image:: https://codecov.io/gh/jazzband/django-taggit/coverage.svg?branch=master
-    :target: https://codecov.io/gh/jazzband/django-taggit?branch=master
+.. image:: https://codecov.io/gh/bashu/django-taggit-parler/coverage.svg?branch=develop
+    :target: https://codecov.io/gh/bashu/django-taggit-parler/branch/develop
 
 This is a `Jazzband <https://jazzband.co>`_ project. By contributing you agree
 to abide by the `Contributor Code of Conduct

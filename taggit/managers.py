@@ -16,8 +16,9 @@ from django.db.models.fields.related import (
 )
 from django.db.models.query_utils import PathInfo
 from django.utils import six
+from django.utils.encoding import force_text
 from django.utils.text import capfirst
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import get_language, ugettext_lazy as _
 
 from taggit.forms import TagField
 from taggit.models import CommonGenericTaggedItemBase, TaggedItem
@@ -128,6 +129,12 @@ class _TaggableManager(models.Manager):
 
     @require_instance_manager
     def add(self, *tags):
+        tags = [
+            t
+            for t in tags
+            if not t == force_text(self.through.tag_model().UNTRANSLATED)
+        ]
+
         db = router.db_for_write(self.through, instance=self.instance)
 
         tag_objs = self._to_tag_model_instances(tags)
@@ -201,25 +208,35 @@ class _TaggableManager(models.Manager):
 
             for name in str_tags:
                 try:
-                    tag = manager.get(name__iexact=name)
+                    tag = manager.get(
+                        translations__language_code=get_language(),
+                        translations__name__iexact=name,
+                    )
                     existing.append(tag)
                 except self.through.tag_model().DoesNotExist:
                     tags_to_create.append(name)
         else:
             # If str_tags has 0 elements Django actually optimizes that to not
             # do a query.  Malcolm is very smart.
-            existing = manager.filter(name__in=str_tags)
+            existing = manager.filter(
+                translations__language_code=get_language(),
+                translations__name__in=str_tags,
+            )
             tags_to_create = str_tags - {t.name for t in existing}
 
         tag_objs.update(existing)
 
         for new_tag in tags_to_create:
             if case_insensitive:
-                tag, created = manager.get_or_create(
-                    name__iexact=new_tag, defaults={"name": new_tag}
-                )
+                try:
+                    tag = manager.get(
+                        translations__language_code=get_language(),
+                        translations__name__iexact=new_tag,
+                    )
+                except self.through.tag_model().DoesNotExist:
+                    tag = manager.create(name=new_tag)
             else:
-                tag, created = manager.get_or_create(name=new_tag)
+                tag = manager.create(name=new_tag)
 
             tag_objs.add(tag)
 
@@ -227,7 +244,7 @@ class _TaggableManager(models.Manager):
 
     @require_instance_manager
     def names(self):
-        return self.get_queryset().values_list("name", flat=True)
+        return self.get_queryset().values_list("translations__name", flat=True)
 
     @require_instance_manager
     def slugs(self):
@@ -255,7 +272,7 @@ class _TaggableManager(models.Manager):
             old_tag_strs = set(
                 self.through._default_manager.using(db)
                 .filter(**self._lookup_kwargs())
-                .values_list("tag__name", flat=True)
+                .values_list("tag__translations__name", flat=True)
             )
 
             new_objs = []
@@ -278,7 +295,7 @@ class _TaggableManager(models.Manager):
         qs = (
             self.through._default_manager.using(db)
             .filter(**self._lookup_kwargs())
-            .filter(tag__name__in=tags)
+            .filter(tag__translations__name__in=tags)
         )
 
         old_ids = set(qs.values_list("tag_id", flat=True))
@@ -317,7 +334,9 @@ class _TaggableManager(models.Manager):
             using=db,
         )
 
-        self.through._default_manager.using(db).filter(**self._lookup_kwargs()).delete()
+        self.through._default_manager.using(db).filter(
+            tag__translations__language_code=get_language(), **self._lookup_kwargs()
+        ).delete()
 
         signals.m2m_changed.send(
             sender=self.through,

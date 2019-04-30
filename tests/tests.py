@@ -186,7 +186,7 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
     def test_add_new_tag_sends_m2m_changed_signals(self, send_mock):
         apple = self.food_model.objects.create(name="apple")
         apple.tags.add("green")
-        green_pk = self.tag_model.objects.get(name="green").pk
+        green_pk = self.tag_model.objects.get(translations__name="green").pk
 
         self.assertEqual(send_mock.call_count, 2)
         send_mock.assert_has_calls(
@@ -280,7 +280,7 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
     def test_remove_tag_sends_m2m_changed_signals(self, send_mock):
         apple = self.food_model.objects.create(name="apple")
         apple.tags.add("green")
-        green_pk = self.tag_model.objects.get(name="green").pk
+        green_pk = self.tag_model.objects.get(translations__name="green").pk
         send_mock.reset_mock()
 
         apple.tags.remove("green")
@@ -349,7 +349,7 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
 
         apple.tags.set("red", clear=True)
 
-        red_pk = self.tag_model.objects.get(name="red").pk
+        red_pk = self.tag_model.objects.get(translations__name="red").pk
 
         self.assertEqual(send_mock.call_count, 4)
         send_mock.assert_has_calls(
@@ -401,8 +401,8 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
 
         apple.tags.set("red")
 
-        green_pk = self.tag_model.objects.get(name="green").pk
-        red_pk = self.tag_model.objects.get(name="red").pk
+        green_pk = self.tag_model.objects.get(translations__name="green").pk
+        red_pk = self.tag_model.objects.get(translations__name="red").pk
 
         self.assertEqual(send_mock.call_count, 4)
         send_mock.assert_has_calls(
@@ -450,39 +450,7 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
         # Prefill content type cache:
         ContentType.objects.get_for_model(self.food_model)
         apple = self.food_model.objects.create(name="apple")
-        # 1. SELECT "taggit_tag"."id", "taggit_tag"."name", "taggit_tag"."slug" FROM "taggit_tag" WHERE "taggit_tag"."name" IN ('green', 'red', 'delicious')
-        # 2. SELECT "taggit_tag"."id", "taggit_tag"."name", "taggit_tag"."slug" FROM "taggit_tag" WHERE "taggit_tag"."name" = 'green'
-        # 3. SAVEPOINT
-        # 4. SAVEPOINT
-        # 5. INSERT INTO "taggit_tag" ("name", "slug") VALUES ('green', 'green')
-        # 6. RELEASE SAVEPOINT
-        # 7. RELEASE SAVEPOINT
-        # 8. SELECT "taggit_tag"."id", "taggit_tag"."name", "taggit_tag"."slug" FROM "taggit_tag" WHERE "taggit_tag"."name" = 'red'
-        # 9. SAVEPOINT
-        # 10. SAVEPOINT
-        # 11. INSERT INTO "taggit_tag" ("name", "slug") VALUES ('red', 'red')
-        # 12. RELEASE SAVEPOINT
-        # 13. RELEASE SAVEPOINT
-        # 14. SELECT "taggit_tag"."id", "taggit_tag"."name", "taggit_tag"."slug" FROM "taggit_tag" WHERE "taggit_tag"."name" = 'delicious'
-        # 15. SAVEPOINT
-        # 16. SAVEPOINT
-        # 17. INSERT INTO "taggit_tag" ("name", "slug") VALUES ('delicious', 'delicious')
-        # 18. RELEASE SAVEPOINT
-        # 19. RELEASE SAVEPOINT
-        # 20. SELECT "taggit_taggeditem"."tag_id" FROM "taggit_taggeditem" WHERE ("taggit_taggeditem"."content_type_id" = 20 AND "taggit_taggeditem"."object_id" = 1)
-        # 21. SELECT "taggit_taggeditem"."id", "taggit_taggeditem"."tag_id", "taggit_taggeditem"."content_type_id", "taggit_taggeditem"."object_id" FROM "taggit_taggeditem" WHERE ("taggit_taggeditem"."content_type_id" = 20 AND "taggit_taggeditem"."object_id" = 1 AND "taggit_taggeditem"."tag_id" = 1)
-        # 22. SAVEPOINT
-        # 23. INSERT INTO "taggit_taggeditem" ("tag_id", "content_type_id", "object_id") VALUES (1, 20, 1)
-        # 24. RELEASE SAVEPOINT
-        # 25. SELECT "taggit_taggeditem"."id", "taggit_taggeditem"."tag_id", "taggit_taggeditem"."content_type_id", "taggit_taggeditem"."object_id" FROM "taggit_taggeditem" WHERE ("taggit_taggeditem"."content_type_id" = 20 AND "taggit_taggeditem"."object_id" = 1 AND "taggit_taggeditem"."tag_id" = 2)
-        # 26. SAVEPOINT
-        # 27. INSERT INTO "taggit_taggeditem" ("tag_id", "content_type_id", "object_id") VALUES (2, 20, 1)
-        # 28. RELEASE SAVEPOINT
-        # 29. SELECT "taggit_taggeditem"."id", "taggit_taggeditem"."tag_id", "taggit_taggeditem"."content_type_id", "taggit_taggeditem"."object_id" FROM "taggit_taggeditem" WHERE ("taggit_taggeditem"."content_type_id" = 20 AND "taggit_taggeditem"."object_id" = 1 AND "taggit_taggeditem"."tag_id" = 3)
-        # 30. SAVEPOINT
-        # 31. INSERT INTO "taggit_taggeditem" ("tag_id", "content_type_id", "object_id") VALUES (3, 20, 1)
-        # 32. RELEASE SAVEPOINT
-        queries = 32
+        queries = 26
         self.assertNumQueries(queries, apple.tags.add, "red", "delicious", "green")
 
         pear = self.food_model.objects.create(name="pear")
@@ -532,10 +500,23 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
         pear = self.food_model.objects.create(name="pear")
         pear.tags.add("green")
         self.assertEqual(
-            list(self.food_model.objects.filter(tags__name__in=["red"])), [apple]
+            list(
+                self.food_model.objects.filter(
+                    tags__in=self.food_model.tags.through.tag_model().objects.filter(
+                        translations__name__in=["red"]
+                    )
+                )
+            ),
+            [apple],
         )
         self.assertEqual(
-            list(self.food_model.objects.filter(tags__name__in=["green"])),
+            list(
+                self.food_model.objects.filter(
+                    tags__in=self.food_model.tags.through.tag_model().objects.filter(
+                        translations__name__in=["green"]
+                    )
+                )
+            ),
             [apple, pear],
         )
 
@@ -544,17 +525,29 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
         dog = self.pet_model.objects.create(name="dog")
         dog.tags.add("woof", "red")
         self.assertEqual(
-            list(self.food_model.objects.filter(tags__name__in=["red"]).distinct()),
+            list(
+                self.food_model.objects.filter(
+                    tags__in=list(
+                        self.food_model.tags.through.tag_model().objects.filter(
+                            translations__name__in=["red"]
+                        )
+                    )
+                ).distinct()
+            ),
             [apple],
         )
 
-        tag = self.tag_model.objects.get(name="woof")
+        tag = self.tag_model.objects.get(translations__name="woof")
         self.assertEqual(list(self.pet_model.objects.filter(tags__in=[tag])), [dog])
 
         cat = self.housepet_model.objects.create(name="cat", trained=True)
         cat.tags.add("fuzzy")
 
-        pks = self.pet_model.objects.filter(tags__name__in=["fuzzy"])
+        pks = self.pet_model.objects.filter(
+            tags__in=self.food_model.tags.through.tag_model().objects.filter(
+                translations__name__in=["fuzzy"]
+            )
+        )
         model_name = self.pet_model.__name__
         self.assertQuerysetEqual(
             pks,
@@ -571,7 +564,11 @@ class TaggableManagerTestCase(BaseTaggingTestCase):
 
         self.food_model.objects.create(name="guava")
 
-        pks = self.food_model.objects.exclude(tags__name__in=["red"])
+        pks = self.food_model.objects.exclude(
+            tags__in=self.food_model.tags.through.tag_model().objects.filter(
+                translations__name__in=["red"]
+            )
+        )
         model_name = self.food_model.__name__
         self.assertQuerysetEqual(
             pks,
@@ -760,9 +757,9 @@ class TaggableManagerOfficialTestCase(TaggableManagerTestCase):
         pear.tags.add("green", "delicious")
 
         tag_info = self.tag_model.objects.filter(
-            officialfood__in=[apple.id, pear.id], name="green"
-        ).annotate(models.Count("name"))
-        self.assertEqual(tag_info[0].name__count, 2)
+            officialfood__in=[apple.id, pear.id], translations__name="green"
+        ).annotate(models.Count("translations__name"))
+        self.assertEqual(tag_info[0].translations__name__count, 2)
 
     def test_most_common_extra_filters(self):
         apple = self.food_model.objects.create(name="apple")

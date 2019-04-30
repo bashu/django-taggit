@@ -1,3 +1,5 @@
+from django.utils.translation import gettext_lazy as _
+
 SECRET_KEY = "secretkey"
 
 INSTALLED_APPS = [
@@ -7,6 +9,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
     "taggit",
     "tests",
 ]
@@ -39,3 +42,21 @@ TEMPLATES = [
 ]
 
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3"}}
+
+SITE_ID = 1
+
+LANGUAGE_CODE = "en-us"
+LANGUAGES = (
+    ("en-us", _("English")),
+    ("fr", _("French")),
+    ("es", _("Spanish")),
+    ("it", _("Italian")),
+    ("nl", _("Dutch")),
+)
+
+INSTALLED_APPS += ["parler"]  # noqa F405
+PARLER_DEFAULT_LANGUAGE = LANGUAGE_CODE
+PARLER_LANGUAGES = {
+    SITE_ID: tuple([{"code": lang[0]} for lang in LANGUAGES]),
+    "default": {"fallback": LANGUAGE_CODE, "hide_untranslated": False},
+}

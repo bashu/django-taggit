@@ -4,6 +4,7 @@ import uuid
 
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
+from parler.models import TranslatedFields
 
 from taggit.managers import TaggableManager
 from taggit.models import (
@@ -167,6 +168,9 @@ class CustomPKHousePet(CustomPKPet):
 
 
 class OfficialTag(TagBase):
+
+    translations = TranslatedFields(name=models.CharField(max_length=100))
+
     official = models.BooleanField(default=False)
 
 
@@ -270,6 +274,8 @@ class UUIDFood(models.Model):
 
 class UUIDTag(TagBase):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    translations = TranslatedFields(name=models.CharField(max_length=100))
 
 
 class UUIDTaggedItem(GenericUUIDTaggedItemBase):

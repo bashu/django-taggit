@@ -113,7 +113,7 @@ def _edit_string_for_tags(tags):
     """
     names = []
     for tag in tags:
-        name = tag.name
+        name = tag.__str__()
         if "," in name or " " in name:
             names.append('"%s"' % name)
         else:

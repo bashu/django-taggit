@@ -3,9 +3,10 @@ from __future__ import unicode_literals
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, models, router, transaction
-from django.utils.encoding import python_2_unicode_compatible
+from django.utils.encoding import force_text, python_2_unicode_compatible
 from django.utils.text import slugify
 from django.utils.translation import ugettext, ugettext_lazy as _
+from parler.models import TranslatableModel, TranslatedFields, TranslationDoesNotExist
 
 try:
     from unidecode import unidecode
@@ -16,12 +17,16 @@ except ImportError:
 
 
 @python_2_unicode_compatible
-class TagBase(models.Model):
-    name = models.CharField(verbose_name=_("Name"), unique=True, max_length=100)
+class TagBase(TranslatableModel):
     slug = models.SlugField(verbose_name=_("Slug"), unique=True, max_length=100)
 
+    UNTRANSLATED = "UNTRANSLATED"
+
     def __str__(self):
-        return self.name
+        try:
+            return self.name
+        except TranslationDoesNotExist:
+            return force_text(self.UNTRANSLATED)
 
     def __gt__(self, other):
         return self.name.lower() > other.name.lower()
@@ -76,6 +81,11 @@ class TagBase(models.Model):
 
 
 class Tag(TagBase):
+
+    translations = TranslatedFields(
+        name=models.CharField(verbose_name=_("Name"), max_length=100)
+    )
+
     class Meta:
         verbose_name = _("Tag")
         verbose_name_plural = _("Tags")
